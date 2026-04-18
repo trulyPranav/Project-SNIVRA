@@ -3,18 +3,25 @@
 import Image from 'next/image'
 import Link from 'next/link'
 import { useState, useEffect, Suspense } from 'react'
-import { useSearchParams } from 'next/navigation'
+import { useSearchParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
+import { getSnivraToken } from '@/lib/api'
 
 function LoginForm() {
   const searchParams = useSearchParams()
+  const router = useRouter()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
+    // Already signed in → go to dashboard
+    if (getSnivraToken()) {
+      router.replace('/dashboard')
+      return
+    }
     const err = searchParams.get('error')
     if (err) setError(decodeURIComponent(err))
-  }, [searchParams])
+  }, [searchParams, router])
 
   async function handleGoogleSignIn() {
     setLoading(true)

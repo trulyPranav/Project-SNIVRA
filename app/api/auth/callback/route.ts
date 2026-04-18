@@ -81,7 +81,7 @@ export async function GET(request: NextRequest) {
     }
 
     if (result.access_token) {
-      const response = NextResponse.redirect(`${origin}/`)
+      const response = NextResponse.redirect(`${origin}/dashboard`)
       response.cookies.set('snivra_token', result.access_token, {
         ...TOKEN_COOKIE_OPTS,
         maxAge: 60 * 60 * 24 * 30, // 30 days

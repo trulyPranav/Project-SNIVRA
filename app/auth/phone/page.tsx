@@ -62,7 +62,7 @@ export default function PhonePage() {
         document.cookie = `snivra_token=${result.access_token}; path=/; max-age=${60 * 60 * 24 * 30}; samesite=lax`
         deleteCookie('snivra_pending_token')
         deleteCookie('snivra_suggested_name')
-        router.replace('/')
+        router.replace('/dashboard')
       } else {
         setPhoneError('Could not complete signup. Please try again.')
       }
