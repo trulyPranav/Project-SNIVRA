@@ -13,6 +13,7 @@ import {
   cancelBooking,
 } from '@/lib/api'
 import type { SnivraUser, NearbySaloon, MyBooking } from '@/lib/api'
+import { registerPushNotifications, shouldShowNotificationPrompt, dismissNotificationPrompt } from '@/lib/webpush'
 
 // ─── Types ──────────────────────────────────────────────────────────────────────
 
@@ -129,6 +130,9 @@ export default function DashboardPage() {
   const [setupSearching, setSetupSearching] = useState(false)
   const setupTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
+  // Notification prompt
+  const [notifPromptVisible, setNotifPromptVisible] = useState(false)
+
   // Bookings panel
   const [bookingsPanelOpen, setBookingsPanelOpen] = useState(false)
   const [myBookings, setMyBookings] = useState<MyBooking[] | null>(null)
@@ -156,7 +160,13 @@ export default function DashboardPage() {
     }
 
     getMe(token)
-      .then(setUser)
+      .then((u) => {
+        setUser(u)
+        // Show in-app prompt if the user hasn't subscribed or dismissed before
+        if (shouldShowNotificationPrompt()) {
+          setNotifPromptVisible(true)
+        }
+      })
       .catch((err: Error) => {
         if (err.message === 'UNAUTHORIZED') {
           clearSnivraToken()
@@ -321,6 +331,19 @@ export default function DashboardPage() {
     router.replace('/login')
   }
 
+  // ── Notification prompt ───────────────────────────────────────────────────────
+  function handleDismissNotifPrompt() {
+    dismissNotificationPrompt()
+    setNotifPromptVisible(false)
+  }
+
+  async function handleEnableNotifications() {
+    setNotifPromptVisible(false)
+    const token = getSnivraToken()
+    if (!token) return
+    await registerPushNotifications(token)
+  }
+
   // ── Bookings panel ────────────────────────────────────────────────────────────
   function openBookingsPanel() {
     setBookingsPanelOpen(true)
@@ -434,6 +457,37 @@ export default function DashboardPage() {
           </button>
         </div>
       </header>
+
+      {/* ── Notification prompt banner ── */}
+      {notifPromptVisible && (
+        <div className="bg-[#e8f0fe] border-b border-[#c5d8fb] px-4 py-3 flex items-center gap-3">
+          <div className="w-8 h-8 rounded-full bg-[#1565c0] flex items-center justify-center shrink-0">
+            <BellIcon />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-xs font-semibold text-[#1a1a2e] leading-snug">
+              Stay updated on your bookings
+            </p>
+            <p className="text-[11px] text-[#5a6a85] mt-0.5">
+              Get notified when your booking status changes.
+            </p>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              onClick={handleDismissNotifPrompt}
+              className="text-xs text-[#5a6a85] hover:text-[#1a1a2e] transition-colors font-medium"
+            >
+              Not now
+            </button>
+            <button
+              onClick={handleEnableNotifications}
+              className="text-xs font-semibold bg-[#1565c0] text-white px-3 py-1.5 rounded-full hover:bg-[#0d47a1] transition-colors"
+            >
+              Enable
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* ── Location + radius bar ── */}
       <div className="bg-white border-b border-[#e3eaf5] px-4 pt-3 pb-2.5">
@@ -1069,6 +1123,24 @@ function BookingsIcon() {
       <line x1="3" y1="10" x2="21" y2="10" />
       <line x1="8" y1="14" x2="16" y2="14" />
       <line x1="8" y1="18" x2="12" y2="18" />
+    </svg>
+  )
+}
+
+function BellIcon() {
+  return (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="white"
+      stroke="white"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" />
+      <path d="M13.73 21a2 2 0 0 1-3.46 0" />
     </svg>
   )
 }

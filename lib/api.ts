@@ -229,3 +229,22 @@ export async function cancelBooking(
   if (!res.ok) throw new Error(data.error || 'Failed to cancel booking')
   return data.booking
 }
+
+// ── Push Tokens ───────────────────────────────────────────────────────────────
+
+export async function saveWebSubscription(
+  subscription: PushSubscriptionJSON,
+  token: string
+): Promise<void> {
+  const res = await fetch(`${API_URL}/tokens/web-subscription`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ subscription }),
+  })
+  const data = await res.json()
+  if (res.status === 401) throw new Error('UNAUTHORIZED')
+  if (!res.ok) throw new Error(data.error || 'Failed to save push subscription')
+}
