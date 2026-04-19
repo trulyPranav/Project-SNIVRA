@@ -5,12 +5,12 @@ import { useParams, useSearchParams, useRouter } from 'next/navigation'
 import {
   getSnivraToken,
   clearSnivraToken,
-  getSeats,
+  getSalonBarbers,
   getConfiguredDates,
-  getSeatSlots,
+  getBarberSlots,
   createBooking,
 } from '@/lib/api'
-import type { Seat, TimeSlot } from '@/lib/api'
+import type { Barber, TimeSlot } from '@/lib/api'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -69,7 +69,7 @@ export default function SaloonBookingPage() {
   const [token, setToken] = useState<string | null>(null)
 
   // Data
-  const [seats, setSeats] = useState<Seat[]>([])
+  const [barbers, setBarbers] = useState<Barber[]>([])
   const [configuredDates, setConfiguredDates] = useState<string[]>([])
   const [slotCountByDate, setSlotCountByDate] = useState<Record<string, number>>({})
   const [slots, setSlots] = useState<TimeSlot[]>([])
@@ -77,16 +77,16 @@ export default function SaloonBookingPage() {
   // Selections
   const [currentMonth, setCurrentMonth] = useState<string>(todayYYYYMM())
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
-  const [selectedSeat, setSelectedSeat] = useState<Seat | null>(null)
+  const [selectedBarber, setSelectedBarber] = useState<Barber | null>(null)
   const [selectedSlot, setSelectedSlot] = useState<TimeSlot | null>(null)
 
   // Loading states
-  const [seatsLoading, setSeatsLoading] = useState(true)
+  const [barbersLoading, setBarbersLoading] = useState(true)
   const [datesLoading, setDatesLoading] = useState(true)
   const [slotsLoading, setSlotsLoading] = useState(false)
 
   // Errors
-  const [seatsError, setSeatsError] = useState<string | null>(null)
+  const [barbersError, setBarbersError] = useState<string | null>(null)
   const [datesError, setDatesError] = useState<string | null>(null)
   const [slotsError, setSlotsError] = useState<string | null>(null)
 
@@ -103,18 +103,18 @@ export default function SaloonBookingPage() {
     setToken(t)
   }, [router])
 
-  // ── Fetch seats ───────────────────────────────────────────────────────────────
+  // ── Fetch barbers ─────────────────────────────────────────────────────────────
   useEffect(() => {
     if (!token) return
-    setSeatsLoading(true)
-    setSeatsError(null)
-    getSeats(saloonId, token)
-      .then((data) => setSeats(data.filter((s) => s.is_active)))
+    setBarbersLoading(true)
+    setBarbersError(null)
+    getSalonBarbers(saloonId, token)
+      .then((data) => setBarbers(data))
       .catch((e: Error) => {
         if (e.message === 'UNAUTHORIZED') { clearSnivraToken(); router.replace('/login'); return }
-        setSeatsError(e.message)
+        setBarbersError(e.message)
       })
-      .finally(() => setSeatsLoading(false))
+      .finally(() => setBarbersLoading(false))
   }, [token, saloonId, router])
 
   // ── Fetch configured dates ───────────────────────────────────────────────────
@@ -146,7 +146,7 @@ export default function SaloonBookingPage() {
 
   // ── Fetch slots ───────────────────────────────────────────────────────────────
   useEffect(() => {
-    if (!token || !selectedDate || !selectedSeat) {
+    if (!token || !selectedDate || !selectedBarber) {
       setSlots([])
       setSelectedSlot(null)
       return
@@ -154,7 +154,7 @@ export default function SaloonBookingPage() {
     setSlotsLoading(true)
     setSlotsError(null)
     setSelectedSlot(null)
-    getSeatSlots(saloonId, selectedDate, selectedSeat.seat_number, token)
+    getBarberSlots(saloonId, selectedDate, selectedBarber.id, token)
       .then((res) => setSlots(res.slots))
       .catch((e: Error) => {
         if (e.message === 'UNAUTHORIZED') { clearSnivraToken(); router.replace('/login'); return }
@@ -162,15 +162,15 @@ export default function SaloonBookingPage() {
         setSlots([])
       })
       .finally(() => setSlotsLoading(false))
-  }, [token, saloonId, selectedDate, selectedSeat, router])
+  }, [token, saloonId, selectedDate, selectedBarber, router])
 
   // ── Book ──────────────────────────────────────────────────────────────────────
   async function handleBook() {
-    if (!token || !selectedSeat || !selectedSlot) return
+    if (!token || !selectedBarber || !selectedSlot) return
     setBooking(true)
     setBookingError(null)
     try {
-      const result = await createBooking(saloonId, selectedSlot.id, selectedSeat.id, token)
+      const result = await createBooking(saloonId, selectedSlot.id, token)
       setBookingSuccess({ id: result.booking.id, otp: result.otp })
       setConfirmOpen(false)
     } catch (e) {
@@ -180,9 +180,9 @@ export default function SaloonBookingPage() {
     }
   }
 
-  function handleSeatSelect(seat: Seat) {
-    if (selectedSeat?.id === seat.id) return
-    setSelectedSeat(seat)
+  function handleBarberSelect(barber: Barber) {
+    if (selectedBarber?.id === barber.id) return
+    setSelectedBarber(barber)
     setSelectedSlot(null)
   }
 
@@ -228,7 +228,7 @@ export default function SaloonBookingPage() {
               label="Time"
               value={selectedSlot ? `${fmt12(selectedSlot.start_time)} – ${fmt12(selectedSlot.end_time)}` : ''}
             />
-            <SummaryRow label="Seat" value={`Seat ${selectedSeat?.seat_number}`} />
+            <SummaryRow label="Barber" value={selectedBarber?.name ?? ''} />
           </div>
 
           <button
@@ -243,7 +243,7 @@ export default function SaloonBookingPage() {
   }
 
   // ─── Main booking page ────────────────────────────────────────────────────────
-  const canBook = !!selectedDate && !!selectedSeat && !!selectedSlot
+  const canBook = !!selectedDate && !!selectedBarber && !!selectedSlot
 
   return (
     <div className="min-h-screen bg-[#f4f6fb] flex flex-col pb-24">
@@ -333,36 +333,45 @@ export default function SaloonBookingPage() {
           )}
         </Section>
 
-        {/* ── Step 2: Seat ── */}
+        {/* ── Step 2: Barber ── */}
         <Section
           step={2}
-          title="Select Seat"
-          filled={!!selectedSeat}
-          filledLabel={selectedSeat ? `Seat ${selectedSeat.seat_number}` : undefined}
+          title="Select Barber"
+          filled={!!selectedBarber}
         >
-          {seatsLoading ? (
+          {barbersLoading ? (
             <div className="flex justify-center py-5">
               <Spinner size={22} />
             </div>
-          ) : seatsError ? (
-            <ErrorInline message={seatsError} />
-          ) : seats.length === 0 ? (
-            <p className="text-center text-xs text-[#5a6a85] py-4">No seats available.</p>
+          ) : barbersError ? (
+            <ErrorInline message={barbersError} />
+          ) : barbers.length === 0 ? (
+            <p className="text-center text-xs text-[#5a6a85] py-4">No barbers available.</p>
           ) : (
-            <div className="flex flex-wrap gap-2">
-              {seats.map((s) => {
-                const active = selectedSeat?.id === s.id
+            <div className="flex flex-col gap-2">
+              {barbers.map((b) => {
+                const active = selectedBarber?.id === b.id
                 return (
                   <button
-                    key={s.id}
-                    onClick={() => handleSeatSelect(s)}
-                    className={`px-4 py-2 rounded-xl border text-sm font-semibold transition-all ${
+                    key={b.id}
+                    onClick={() => handleBarberSelect(b)}
+                    className={`flex items-center gap-3 w-full px-3 py-2.5 rounded-xl border text-left transition-all ${
                       active
                         ? 'bg-[#1565c0] border-[#1565c0] text-white'
                         : 'bg-white border-[#e3eaf5] text-[#1a1a2e] hover:border-[#1565c0]'
                     }`}
                   >
-                    Seat {s.seat_number}
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 text-xs font-bold ${
+                      active ? 'bg-white/20 text-white' : 'bg-[#e8f0fe] text-[#1565c0]'
+                    }`}>
+                      {b.name.charAt(0).toUpperCase()}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className={`text-sm font-semibold truncate ${active ? 'text-white' : 'text-[#1a1a2e]'}`}>{b.name}</p>
+                      {/* {b.role === 'OWNER' && (
+                        <p className={`text-[10px] font-medium ${active ? 'text-blue-200' : 'text-[#5a6a85]'}`}>Owner</p>
+                      )} */}
+                    </div>
                   </button>
                 )
               })}
@@ -376,10 +385,10 @@ export default function SaloonBookingPage() {
           title="Select Time"
           filled={!!selectedSlot}
           filledLabel={selectedSlot ? `${fmt12(selectedSlot.start_time)} – ${fmt12(selectedSlot.end_time)}` : undefined}
-          muted={!selectedDate || !selectedSeat}
-          mutedLabel={!selectedDate ? 'Select a date first' : !selectedSeat ? 'Select a seat first' : undefined}
+          muted={!selectedDate || !selectedBarber}
+          mutedLabel={!selectedDate ? 'Select a date first' : !selectedBarber ? 'Select a barber first' : undefined}
         >
-          {selectedDate && selectedSeat && (
+          {selectedDate && selectedBarber && (
             <>
               {slotsLoading ? (
                 <div className="flex justify-center py-5">
@@ -389,7 +398,7 @@ export default function SaloonBookingPage() {
                 <ErrorInline message={slotsError} />
               ) : slots.length === 0 ? (
                 <p className="text-center text-xs text-[#5a6a85] py-4">
-                  No slots available for this seat on this date.
+                  No slots available for this barber on this date.
                 </p>
               ) : (
                 <SlotGrid
@@ -418,12 +427,12 @@ export default function SaloonBookingPage() {
       )}
 
       {/* ── Confirm modal ── */}
-      {confirmOpen && selectedDate && selectedSeat && selectedSlot && (
+      {confirmOpen && selectedDate && selectedBarber && selectedSlot && (
         <ConfirmModal
           saloonName={saloonName}
           date={selectedDate}
           slot={selectedSlot}
-          seat={selectedSeat}
+          barber={selectedBarber}
           loading={booking}
           error={bookingError}
           onConfirm={handleBook}
@@ -531,7 +540,7 @@ function ConfirmModal({
   saloonName,
   date,
   slot,
-  seat,
+  barber,
   loading,
   error,
   onConfirm,
@@ -540,7 +549,7 @@ function ConfirmModal({
   saloonName: string
   date: string
   slot: TimeSlot
-  seat: Seat
+  barber: Barber
   loading: boolean
   error: string | null
   onConfirm: () => void
@@ -564,7 +573,7 @@ function ConfirmModal({
               label="Time"
               value={`${fmt12(slot.start_time)} – ${fmt12(slot.end_time)}`}
             />
-            <SummaryRow label="Seat" value={`Seat ${seat.seat_number}`} />
+            <SummaryRow label="Barber" value={barber.name} />
           </div>
 
           {error && (

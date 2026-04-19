@@ -94,23 +94,23 @@ export async function getNearbySaloons(
   return data.saloons
 }
 
-// ── Seats ──────────────────────────────────────────────────────────────────────
+// ── Barbers ────────────────────────────────────────────────────────────────────
 
-export interface Seat {
+export interface Barber {
   id: string
-  saloon_id: string
-  seat_number: number
-  is_active: boolean
+  name: string
+  phone: string
+  role: 'BARBER' | 'OWNER'
 }
 
-export async function getSeats(saloonId: string, token: string): Promise<Seat[]> {
-  const res = await fetch(`${API_URL}/seats/${saloonId}`, {
+export async function getSalonBarbers(saloonId: string, token: string): Promise<Barber[]> {
+  const res = await fetch(`${API_URL}/saloons/${saloonId}/barbers`, {
     headers: { Authorization: `Bearer ${token}` },
   })
   const data = await res.json()
   if (res.status === 401) throw new Error('UNAUTHORIZED')
-  if (!res.ok) throw new Error(data.error || 'Failed to fetch seats')
-  return data.seats
+  if (!res.ok) throw new Error(data.error || 'Failed to fetch barbers')
+  return data.barbers
 }
 
 // ── Time Slots ────────────────────────────────────────────────────────────────
@@ -143,7 +143,7 @@ export interface TimeSlot {
   status: string
 }
 
-export interface SeatSlotsResult {
+export interface BarberSlotsResult {
   slots: TimeSlot[]
   summary: {
     total_slots: number
@@ -152,14 +152,14 @@ export interface SeatSlotsResult {
   }
 }
 
-export async function getSeatSlots(
+export async function getBarberSlots(
   saloonId: string,
   slotDate: string,
-  seatNumber: number,
+  barberId: string,
   token: string
-): Promise<SeatSlotsResult> {
+): Promise<BarberSlotsResult> {
   const res = await fetch(
-    `${API_URL}/time-slots/${saloonId}/seat-slots?slot_date=${slotDate}&seat_number=${seatNumber}`,
+    `${API_URL}/time-slots/${saloonId}/barber-slots?slot_date=${slotDate}&barber_id=${barberId}`,
     { headers: { Authorization: `Bearer ${token}` } }
   )
   const data = await res.json()
@@ -178,7 +178,6 @@ export interface BookingResult {
 export async function createBooking(
   saloonId: string,
   timeSlotId: string,
-  seatId: string,
   token: string
 ): Promise<BookingResult> {
   const res = await fetch(`${API_URL}/bookings`, {
@@ -187,7 +186,7 @@ export async function createBooking(
       'Content-Type': 'application/json',
       Authorization: `Bearer ${token}`,
     },
-    body: JSON.stringify({ saloon_id: saloonId, time_slot_id: timeSlotId, seat_id: seatId }),
+    body: JSON.stringify({ saloon_id: saloonId, time_slot_id: timeSlotId }),
   })
   const data = await res.json()
   if (res.status === 401) throw new Error('UNAUTHORIZED')
@@ -201,7 +200,7 @@ export interface MyBooking {
   slot_date: string
   start_time: string
   end_time: string
-  seat_number: number
+  barber_name: string
   saloon_name: string
   otp: string
 }

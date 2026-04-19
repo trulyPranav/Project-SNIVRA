@@ -1340,7 +1340,7 @@ function BookingCard({
       {/* Date + time + seat */}
       <div className="flex flex-col gap-1">
         <p className="text-xs text-[#5a6a85]">{formatBookingDate(booking.slot_date)}</p>
-        <p className="text-xs text-[#5a6a85]">{formatBookingTime(booking.start_time, booking.end_time)} · Seat {booking.seat_number}</p>
+        <p className="text-xs text-[#5a6a85]">{formatBookingTime(booking.start_time, booking.end_time)} · {booking.barber_name}</p>
       </div>
 
       {/* OTP (only for BOOKED) */}
