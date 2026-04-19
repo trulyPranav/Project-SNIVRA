@@ -79,6 +79,7 @@ export interface NearbySaloon {
   id: string
   name: string
   distance: number
+  is_open: boolean
 }
 
 export async function getNearbySaloons(
@@ -101,6 +102,7 @@ export interface Barber {
   name: string
   phone: string
   role: 'BARBER' | 'OWNER'
+  is_available: boolean
 }
 
 export async function getSalonBarbers(saloonId: string, token: string): Promise<Barber[]> {
@@ -111,6 +113,24 @@ export async function getSalonBarbers(saloonId: string, token: string): Promise<
   if (res.status === 401) throw new Error('UNAUTHORIZED')
   if (!res.ok) throw new Error(data.error || 'Failed to fetch barbers')
   return data.barbers
+}
+
+// ── Services ──────────────────────────────────────────────────────────────────
+
+export interface Service {
+  id: string
+  name: string
+  description?: string
+  price?: number
+  duration_minutes?: number
+  is_active: boolean
+}
+
+export async function getSalonServices(saloonId: string): Promise<Service[]> {
+  const res = await fetch(`${API_URL}/saloons/${saloonId}/services`)
+  const data = await res.json()
+  if (!res.ok) throw new Error(data.error || 'Failed to fetch services')
+  return data.services
 }
 
 // ── Time Slots ────────────────────────────────────────────────────────────────
@@ -140,15 +160,18 @@ export interface TimeSlot {
   start_time: string
   end_time: string
   is_available: boolean
+  barber_available: boolean
   status: string
 }
 
 export interface BarberSlotsResult {
+  barber_is_available: boolean
   slots: TimeSlot[]
   summary: {
     total_slots: number
     available_slots: number
     unavailable_slots: number
+    barber_unavailable_slots: number
   }
 }
 
@@ -178,15 +201,18 @@ export interface BookingResult {
 export async function createBooking(
   saloonId: string,
   timeSlotId: string,
-  token: string
+  token: string,
+  serviceIds?: string[]
 ): Promise<BookingResult> {
+  const body: Record<string, unknown> = { saloon_id: saloonId, time_slot_id: timeSlotId }
+  if (serviceIds && serviceIds.length > 0) body.service_ids = serviceIds
   const res = await fetch(`${API_URL}/bookings`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${token}`,
     },
-    body: JSON.stringify({ saloon_id: saloonId, time_slot_id: timeSlotId }),
+    body: JSON.stringify(body),
   })
   const data = await res.json()
   if (res.status === 401) throw new Error('UNAUTHORIZED')
@@ -203,6 +229,7 @@ export interface MyBooking {
   barber_name: string
   saloon_name: string
   otp: string
+  services: { id: string; name: string }[]
 }
 
 export async function getMyBookings(token: string): Promise<MyBooking[]> {

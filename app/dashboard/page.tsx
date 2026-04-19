@@ -863,15 +863,28 @@ function SaloonCard({ saloon }: { saloon: NearbySaloon }) {
   return (
     <Link
       href={`/dashboard/saloon/${saloon.id}?name=${encodeURIComponent(saloon.name)}`}
-      className="bg-white rounded-xl border border-[#e3eaf5] px-4 py-3.5 flex items-center gap-3 hover:border-[#1565c0] hover:bg-[#f8faff] transition-colors active:bg-[#f0f4ff]"
+      className={`bg-white rounded-xl border px-4 py-3.5 flex items-center gap-3 transition-colors active:bg-[#f0f4ff] ${
+        saloon.is_open
+          ? 'border-[#e3eaf5] hover:border-[#1565c0] hover:bg-[#f8faff]'
+          : 'border-[#e3eaf5] opacity-60'
+      }`}
     >
-      <div className="w-10 h-10 rounded-xl bg-[#e8f0fe] flex items-center justify-center shrink-0">
-        <ScissorsIcon size={20} color="#1565c0" />
+      <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
+        saloon.is_open ? 'bg-[#e8f0fe]' : 'bg-[#f0f0f0]'
+      }`}>
+        <ScissorsIcon size={20} color={saloon.is_open ? '#1565c0' : '#9e9e9e'} />
       </div>
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-semibold text-[#1a1a2e] truncate">
-          {saloon.name}
-        </p>
+        <div className="flex items-center gap-2">
+          <p className="text-sm font-semibold text-[#1a1a2e] truncate">
+            {saloon.name}
+          </p>
+          {!saloon.is_open && (
+            <span className="shrink-0 text-[10px] font-semibold text-[#757575] bg-[#eeeeee] rounded-full px-2 py-0.5">
+              Closed today
+            </span>
+          )}
+        </div>
         <div className="flex items-center gap-1 mt-0.5">
           <PinIcon size={12} className="text-[#5a6a85] shrink-0" />
           <span className="text-xs text-[#5a6a85]">
@@ -1341,6 +1354,15 @@ function BookingCard({
       <div className="flex flex-col gap-1">
         <p className="text-xs text-[#5a6a85]">{formatBookingDate(booking.slot_date)}</p>
         <p className="text-xs text-[#5a6a85]">{formatBookingTime(booking.start_time, booking.end_time)} · {booking.barber_name}</p>
+        {booking.services.length > 0 && (
+          <div className="flex flex-wrap gap-1 mt-0.5">
+            {booking.services.map((s) => (
+              <span key={s.id} className="text-[10px] font-medium bg-[#e8f0fe] text-[#1565c0] px-2 py-0.5 rounded-full">
+                {s.name}
+              </span>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* OTP (only for BOOKED) */}

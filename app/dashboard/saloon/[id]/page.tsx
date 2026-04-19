@@ -6,11 +6,12 @@ import {
   getSnivraToken,
   clearSnivraToken,
   getSalonBarbers,
+  getSalonServices,
   getConfiguredDates,
   getBarberSlots,
   createBooking,
 } from '@/lib/api'
-import type { Barber, TimeSlot } from '@/lib/api'
+import type { Barber, Service, TimeSlot } from '@/lib/api'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -95,14 +96,27 @@ export default function SaloonBookingPage() {
   const [booking, setBooking] = useState(false)
   const [bookingError, setBookingError] = useState<string | null>(null)
   const [bookingSuccess, setBookingSuccess] = useState<{ id: string; otp: string } | null>(null)
-
+  const [barberIsAvailable, setBarberIsAvailable] = useState<boolean | null>(null)
+  // Services
+  const [services, setServices] = useState<Service[]>([])
+  const [selectedServiceIds, setSelectedServiceIds] = useState<string[]>([])
+  const [servicesLoading, setServicesLoading] = useState(true)
+  const [servicesError, setServicesError] = useState<string | null>(null)
   // ── Auth init ────────────────────────────────────────────────────────────────
   useEffect(() => {
     const t = getSnivraToken()
     if (!t) { router.replace('/login'); return }
     setToken(t)
   }, [router])
-
+  // ── Fetch services (no auth needed) ──────────────────────────────────────────────
+  useEffect(() => {
+    setServicesLoading(true)
+    setServicesError(null)
+    getSalonServices(saloonId)
+      .then((data) => setServices(data))
+      .catch((e: Error) => setServicesError(e.message))
+      .finally(() => setServicesLoading(false))
+  }, [saloonId])
   // ── Fetch barbers ─────────────────────────────────────────────────────────────
   useEffect(() => {
     if (!token) return
@@ -149,13 +163,18 @@ export default function SaloonBookingPage() {
     if (!token || !selectedDate || !selectedBarber) {
       setSlots([])
       setSelectedSlot(null)
+      setBarberIsAvailable(null)
       return
     }
     setSlotsLoading(true)
     setSlotsError(null)
     setSelectedSlot(null)
+    setBarberIsAvailable(null)
     getBarberSlots(saloonId, selectedDate, selectedBarber.id, token)
-      .then((res) => setSlots(res.slots))
+      .then((res) => {
+        setSlots(res.slots)
+        setBarberIsAvailable(res.barber_is_available)
+      })
       .catch((e: Error) => {
         if (e.message === 'UNAUTHORIZED') { clearSnivraToken(); router.replace('/login'); return }
         setSlotsError(e.message)
@@ -170,7 +189,12 @@ export default function SaloonBookingPage() {
     setBooking(true)
     setBookingError(null)
     try {
-      const result = await createBooking(saloonId, selectedSlot.id, token)
+      const result = await createBooking(
+        saloonId,
+        selectedSlot.id,
+        token,
+        selectedServiceIds.length > 0 ? selectedServiceIds : undefined
+      )
       setBookingSuccess({ id: result.booking.id, otp: result.otp })
       setConfirmOpen(false)
     } catch (e) {
@@ -184,6 +208,13 @@ export default function SaloonBookingPage() {
     if (selectedBarber?.id === barber.id) return
     setSelectedBarber(barber)
     setSelectedSlot(null)
+    setBarberIsAvailable(null)
+  }
+
+  function handleServiceToggle(serviceId: string) {
+    setSelectedServiceIds((prev) =>
+      prev.includes(serviceId) ? prev.filter((id) => id !== serviceId) : [...prev, serviceId]
+    )
   }
 
   function handleDateSelect(d: string) {
@@ -229,6 +260,12 @@ export default function SaloonBookingPage() {
               value={selectedSlot ? `${fmt12(selectedSlot.start_time)} – ${fmt12(selectedSlot.end_time)}` : ''}
             />
             <SummaryRow label="Barber" value={selectedBarber?.name ?? ''} />
+            {selectedServiceIds.length > 0 && (
+              <SummaryRow
+                label="Services"
+                value={services.filter((s) => selectedServiceIds.includes(s.id)).map((s) => s.name).join(', ')}
+              />
+            )}
           </div>
 
           <button
@@ -243,6 +280,8 @@ export default function SaloonBookingPage() {
   }
 
   // ─── Main booking page ────────────────────────────────────────────────────────
+  const hasServices = !servicesLoading && services.length > 0
+  const timeStepNum = hasServices ? 4 : 3
   const canBook = !!selectedDate && !!selectedBarber && !!selectedSlot
 
   return (
@@ -368,9 +407,9 @@ export default function SaloonBookingPage() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className={`text-sm font-semibold truncate ${active ? 'text-white' : 'text-[#1a1a2e]'}`}>{b.name}</p>
-                      {/* {b.role === 'OWNER' && (
-                        <p className={`text-[10px] font-medium ${active ? 'text-blue-200' : 'text-[#5a6a85]'}`}>Owner</p>
-                      )} */}
+                      {!b.is_available && (
+                        <p className={`text-[10px] font-medium ${active ? 'text-orange-200' : 'text-[#e65100]'}`}>Unavailable</p>
+                      )}
                     </div>
                   </button>
                 )
@@ -379,9 +418,65 @@ export default function SaloonBookingPage() {
           )}
         </Section>
 
-        {/* ── Step 3: Time Slot ── */}
+        {/* ── Step 3: Services (optional) ── */}
+        {hasServices && (
+          <Section
+            step={3}
+            title="Select Services"
+            filled={selectedServiceIds.length > 0}
+            filledLabel={`${selectedServiceIds.length} service${selectedServiceIds.length !== 1 ? 's' : ''} selected`}
+          >
+            {servicesError ? (
+              <ErrorInline message={servicesError} />
+            ) : (
+              <div className="flex flex-col gap-2">
+                {/* <p className="text-[11px] text-[#5a6a85] mb-1">Optional — tap to add</p> */}
+                {services.map((svc) => {
+                  const sel = selectedServiceIds.includes(svc.id)
+                  return (
+                    <button
+                      key={svc.id}
+                      onClick={() => handleServiceToggle(svc.id)}
+                      className={`flex items-center gap-3 w-full px-3 py-2.5 rounded-xl border text-left transition-all ${
+                        sel
+                          ? 'bg-[#1565c0] border-[#1565c0] text-white'
+                          : 'bg-white border-[#e3eaf5] text-[#1a1a2e] hover:border-[#1565c0]'
+                      }`}
+                    >
+                      <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center shrink-0 transition-colors ${
+                        sel ? 'bg-white border-white' : 'border-[#c0cbd8]'
+                      }`}>
+                        {sel && (
+                          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#1565c0" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round">
+                            <polyline points="20 6 9 17 4 12" />
+                          </svg>
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className={`text-sm font-semibold truncate ${sel ? 'text-white' : 'text-[#1a1a2e]'}`}>{svc.name}</p>
+                        {svc.description && (
+                          <p className={`text-[10px] truncate ${sel ? 'text-blue-200' : 'text-[#5a6a85]'}`}>{svc.description}</p>
+                        )}
+                      </div>
+                      <div className="text-right shrink-0">
+                        {svc.price != null && (
+                          <p className={`text-sm font-bold ${sel ? 'text-white' : 'text-[#1565c0]'}`}>₹{svc.price}</p>
+                        )}
+                        {svc.duration_minutes != null && (
+                          <p className={`text-[10px] ${sel ? 'text-blue-200' : 'text-[#5a6a85]'}`}>{svc.duration_minutes}m</p>
+                        )}
+                      </div>
+                    </button>
+                  )
+                })}
+              </div>
+            )}
+          </Section>
+        )}
+
+        {/* ── Step 3/4: Time Slot ── */}
         <Section
-          step={3}
+          step={timeStepNum}
           title="Select Time"
           filled={!!selectedSlot}
           filledLabel={selectedSlot ? `${fmt12(selectedSlot.start_time)} – ${fmt12(selectedSlot.end_time)}` : undefined}
@@ -390,6 +485,18 @@ export default function SaloonBookingPage() {
         >
           {selectedDate && selectedBarber && (
             <>
+              {barberIsAvailable === false && !slotsLoading && !slotsError && (
+                <div className="mb-3 flex items-start gap-2 bg-[#fff8e1] border border-[#ffe082] rounded-xl px-3 py-2.5">
+                  <svg className="shrink-0 mt-0.5" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#e65100" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+                    <line x1="12" y1="9" x2="12" y2="13" />
+                    <line x1="12" y1="17" x2="12.01" y2="17" />
+                  </svg>
+                  <p className="text-[11px] text-[#e65100] leading-snug">
+                    This barber is currently marked unavailable — they may not be present.
+                  </p>
+                </div>
+              )}
               {slotsLoading ? (
                 <div className="flex justify-center py-5">
                   <Spinner size={22} />
@@ -433,6 +540,7 @@ export default function SaloonBookingPage() {
           date={selectedDate}
           slot={selectedSlot}
           barber={selectedBarber}
+          selectedServices={services.filter((s) => selectedServiceIds.includes(s.id))}
           loading={booking}
           error={bookingError}
           onConfirm={handleBook}
@@ -510,15 +618,20 @@ function SlotGrid({
     <div className="grid grid-cols-3 gap-2">
       {slots.map((s) => {
         const active = selected?.id === s.id
-        const unavail = !s.is_available
+        const booked = !s.is_available
+        const barberOut = s.barber_available === false
+        const disabled = booked || barberOut
         return (
           <button
             key={s.id}
-            disabled={unavail}
+            disabled={disabled}
             onClick={() => onSelect(s)}
+            title={barberOut && !booked ? 'Barber unavailable for this slot' : undefined}
             className={`rounded-xl border py-2.5 text-center transition-all ${
-              unavail
+              booked
                 ? 'bg-[#f4f6fb] border-[#e3eaf5] text-[#c0cbd8] cursor-not-allowed'
+                : barberOut
+                ? 'bg-[#fff8e1] border-[#ffe082] text-[#bf6e00] cursor-not-allowed'
                 : active
                 ? 'bg-[#1565c0] border-[#1565c0] text-white'
                 : 'bg-white border-[#e3eaf5] text-[#1a1a2e] hover:border-[#1565c0]'
@@ -527,6 +640,11 @@ function SlotGrid({
             <span className="text-xs font-semibold leading-tight block">
               {fmt12(s.start_time)}
             </span>
+            {barberOut && !booked && (
+              <span className="text-[9px] leading-tight block mt-0.5 font-medium text-[#bf6e00]">
+                Unavailable
+              </span>
+            )}
           </button>
         )
       })}
@@ -541,6 +659,7 @@ function ConfirmModal({
   date,
   slot,
   barber,
+  selectedServices,
   loading,
   error,
   onConfirm,
@@ -550,6 +669,7 @@ function ConfirmModal({
   date: string
   slot: TimeSlot
   barber: Barber
+  selectedServices: { id: string; name: string }[]
   loading: boolean
   error: string | null
   onConfirm: () => void
@@ -574,6 +694,12 @@ function ConfirmModal({
               value={`${fmt12(slot.start_time)} – ${fmt12(slot.end_time)}`}
             />
             <SummaryRow label="Barber" value={barber.name} />
+            {selectedServices.length > 0 && (
+              <SummaryRow
+                label="Services"
+                value={selectedServices.map((s) => s.name).join(', ')}
+              />
+            )}
           </div>
 
           {error && (
