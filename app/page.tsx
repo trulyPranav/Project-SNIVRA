@@ -12,6 +12,7 @@ export default function LandingPage() {
             alt="SNIVRA"
             width={32}
             height={32}
+            style={{ width: 32, height: 32 }}
             className="rounded-lg object-cover"
           />
           <span className="text-[#1565c0] font-semibold text-base tracking-wide">SNIVRA</span>
@@ -26,13 +27,13 @@ export default function LandingPage() {
 
       {/* Hero */}
       <section className="flex flex-col items-center text-center px-6 pt-10 pb-8 bg-[#f4f6fb]">
-        <div className="w-20 h-20 rounded-2xl overflow-hidden shadow-md mb-5">
+        <div className="relative w-20 h-20 rounded-2xl overflow-hidden shadow-md mb-5">
           <Image
             src="/snivra.png"
             alt="SNIVRA Logo"
-            width={80}
-            height={80}
-            className="object-cover w-full h-full"
+            fill
+            sizes="80px"
+            className="object-cover"
             priority
           />
         </div>
