@@ -352,7 +352,7 @@ export default function SaloonBookingPage() {
                     <button
                       key={d}
                       onClick={() => handleDateSelect(d)}
-                      className={`shrink-0 flex flex-col items-center rounded-xl px-3 pt-2.5 pb-2 border min-w-[52px] transition-all ${
+                      className={`shrink-0 flex flex-col items-center rounded-xl px-3 pt-2.5 pb-2 border min-w-13 transition-all ${
                         active
                           ? 'bg-[#1565c0] border-[#1565c0] text-white'
                           : 'bg-white border-[#e3eaf5] text-[#1a1a2e] hover:border-[#1565c0]'

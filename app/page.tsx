@@ -8,7 +8,7 @@ export default function LandingPage() {
       <header className="flex items-center justify-between px-4 py-3 border-b border-[#e3eaf5] bg-white sticky top-0 z-10">
         <div className="flex items-center gap-2">
           <Image
-            src="/snivra.jpeg"
+            src="/snivra.png"
             alt="SNIVRA"
             width={32}
             height={32}
@@ -28,7 +28,7 @@ export default function LandingPage() {
       <section className="flex flex-col items-center text-center px-6 pt-10 pb-8 bg-[#f4f6fb]">
         <div className="w-20 h-20 rounded-2xl overflow-hidden shadow-md mb-5">
           <Image
-            src="/snivra.jpeg"
+            src="/snivra.png"
             alt="SNIVRA Logo"
             width={80}
             height={80}

@@ -415,7 +415,7 @@ export default function DashboardPage() {
         <div className="flex items-center gap-2">
           <div className="w-7 h-7 rounded-lg overflow-hidden shrink-0">
             <Image
-              src="/snivra.jpeg"
+              src="/snivra.png"
               alt="SNIVRA"
               width={28}
               height={28}
@@ -494,7 +494,7 @@ export default function DashboardPage() {
         <div className="flex items-center justify-between mb-2.5">
           <div className="flex items-center gap-1.5 min-w-0">
             <PinFillIcon />
-            <span className="text-sm font-medium text-[#1a1a2e] truncate max-w-[210px]">
+            <span className="text-sm font-medium text-[#1a1a2e] truncate max-w-52.5">
               {location?.name ?? '—'}
             </span>
           </div>
@@ -646,7 +646,7 @@ function LocationSetupScreen(props: LocationContentProps) {
         <div className="flex flex-col items-center mb-6">
           <div className="w-16 h-16 rounded-2xl overflow-hidden shadow-md mb-4">
             <Image
-              src="/snivra.jpeg"
+              src="/snivra.png"
               alt="SNIVRA"
               width={64}
               height={64}
@@ -656,7 +656,7 @@ function LocationSetupScreen(props: LocationContentProps) {
           <h1 className="text-xl font-bold text-[#1a1a2e]">
             Find salons near you
           </h1>
-          <p className="text-xs text-[#5a6a85] text-center mt-1 max-w-[240px]">
+          <p className="text-xs text-[#5a6a85] text-center mt-1 max-w-60">
             Share your location or search for your area to discover nearby
             salons.
           </p>

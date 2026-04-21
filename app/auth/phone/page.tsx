@@ -87,7 +87,7 @@ export default function PhonePage() {
         <div className="flex flex-col items-center mb-5">
           <div className="w-14 h-14 rounded-2xl overflow-hidden shadow mb-3">
             <Image
-              src="/snivra.jpeg"
+              src="/snivra.png"
               alt="SNIVRA"
               width={56}
               height={56}

@@ -53,7 +53,7 @@ function LoginForm() {
       <div className="flex flex-col items-center mb-6">
         <div className="w-16 h-16 rounded-2xl overflow-hidden shadow mb-3">
           <Image
-            src="/snivra.jpeg"
+            src="/snivra.png"
             alt="SNIVRA"
             width={64}
             height={64}
