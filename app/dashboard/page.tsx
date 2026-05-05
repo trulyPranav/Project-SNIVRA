@@ -142,6 +142,10 @@ export default function DashboardPage() {
   const [cancellingId, setCancellingId] = useState<string | null>(null)
   const [cancelError, setCancelError] = useState<string | null>(null)
 
+  // Profile popover
+  const [profileOpen, setProfileOpen] = useState(false)
+  const profileRef = useRef<HTMLDivElement>(null)
+
   // Change location modal
   const [modalOpen, setModalOpen] = useState(false)
   const [modalMode, setModalMode] = useState<LocationMode>('choose')
@@ -326,6 +330,18 @@ export default function DashboardPage() {
     setModalResults([])
   }
 
+  // ── Profile popover close-on-outside-click ───────────────────────────────────
+  useEffect(() => {
+    if (!profileOpen) return
+    function handleOutside(e: MouseEvent) {
+      if (profileRef.current && !profileRef.current.contains(e.target as Node)) {
+        setProfileOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleOutside)
+    return () => document.removeEventListener('mousedown', handleOutside)
+  }, [profileOpen])
+
   function handleSignOut() {
     clearSnivraToken()
     router.replace('/login')
@@ -439,22 +455,25 @@ export default function DashboardPage() {
             )}
           </button>
           {user && (
-            <div
-              className="w-8 h-8 rounded-full bg-[#e8f0fe] border border-[#c5d8fb] flex items-center justify-center"
-              title={user.name}
-            >
-              <span className="text-[#1565c0] text-xs font-bold">
-                {getInitials(user.name)}
-              </span>
+            <div ref={profileRef} className="relative">
+              <button
+                onClick={() => setProfileOpen((o) => !o)}
+                title={user.name}
+                className="w-8 h-8 rounded-full bg-[#e8f0fe] border border-[#c5d8fb] flex items-center justify-center hover:border-[#1565c0] transition-colors"
+              >
+                <span className="text-[#1565c0] text-xs font-bold">
+                  {getInitials(user.name)}
+                </span>
+              </button>
+              {profileOpen && (
+                <ProfilePopover
+                  user={user}
+                  onSignOut={handleSignOut}
+                  onClose={() => setProfileOpen(false)}
+                />
+              )}
             </div>
           )}
-          <button
-            onClick={handleSignOut}
-            title="Sign out"
-            className="p-1 text-[#5a6a85] hover:text-[#1565c0] transition-colors"
-          >
-            <SignOutIcon />
-          </button>
         </div>
       </header>
 
@@ -1114,6 +1133,111 @@ function ChevronRightIcon() {
       strokeLinejoin="round"
     >
       <polyline points="9 18 15 12 9 6" />
+    </svg>
+  )
+}
+
+// ─── Profile Popover ──────────────────────────────────────────────────────────
+
+function ProfilePopover({
+  user,
+  onSignOut,
+  onClose,
+}: {
+  user: SnivraUser
+  onSignOut: () => void
+  onClose: () => void
+}) {
+  const [copied, setCopied] = useState(false)
+  const [pointsInfoOpen, setPointsInfoOpen] = useState(false)
+
+  async function handleCopy() {
+    try {
+      await navigator.clipboard.writeText(user.referral_code)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch {
+      // silent fail
+    }
+  }
+
+  return (
+    <div className="absolute right-0 top-10 z-30 w-64 bg-white rounded-2xl border border-[#e3eaf5] shadow-lg overflow-hidden">
+      {/* Name + phone */}
+      <div className="px-4 pt-4 pb-3 border-b border-[#f0f4fa]">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-full bg-[#e8f0fe] border border-[#c5d8fb] flex items-center justify-center shrink-0">
+            <span className="text-[#1565c0] text-sm font-bold">
+              {user.name.split(' ').slice(0, 2).map((w) => w[0]?.toUpperCase() ?? '').join('')}
+            </span>
+          </div>
+          <div className="min-w-0">
+            <p className="text-sm font-bold text-[#1a1a2e] truncate">{user.name}</p>
+            <p className="text-[11px] text-[#5a6a85] truncate">+91 {user.phone}</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Referral code */}
+      <div className="px-4 py-3 border-b border-[#f0f4fa]">
+        <div className="flex items-center gap-1.5 mb-1.5">
+          <GiftIcon />
+          <span className="text-[11px] text-[#5a6a85] font-medium">Referral code</span>
+        </div>
+        <div className="flex items-center justify-between">
+          <span className="text-sm font-bold text-[#1a1a2e] tracking-widest">{user.referral_code}</span>
+          <button
+            onClick={handleCopy}
+            className="text-xs font-semibold text-[#1565c0] bg-[#e8f0fe] hover:bg-[#c5d8fb] px-3 py-1 rounded-full transition-colors"
+          >
+            {copied ? 'Copied!' : 'Copy'}
+          </button>
+        </div>
+      </div>
+
+      {/* Referral points */}
+      <div className="px-4 py-3 border-b border-[#f0f4fa]">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-1.5">
+            <span className="text-[11px] text-[#5a6a85] font-medium">Referral points</span>
+            <button
+              type="button"
+              onClick={() => setPointsInfoOpen((o) => !o)}
+              className="w-4 h-4 rounded-full border border-[#b0bec5] text-[#5a6a85] hover:border-[#1565c0] hover:text-[#1565c0] flex items-center justify-center transition-colors text-[10px] font-bold leading-none"
+              aria-label="How are points earned?"
+            >
+              i
+            </button>
+          </div>
+          <span className="text-sm font-bold text-[#1565c0]">{user.referral_points}</span>
+        </div>
+        {pointsInfoOpen && (
+          <div className="mt-2 rounded-lg bg-[#f4f6fb] border border-[#e3eaf5] px-3 py-2 text-[11px] text-[#5a6a85] leading-relaxed">
+            Earn <span className="font-semibold text-[#1a1a2e]">+5 points</span> each time someone signs up using your referral code. Points are credited once per referred user after they complete signup.
+          </div>
+        )}
+      </div>
+
+      {/* Sign out */}
+      <button
+        onClick={() => { onClose(); onSignOut() }}
+        className="w-full flex items-center gap-2 px-4 py-3 text-sm text-[#c62828] hover:bg-[#fff5f5] transition-colors font-medium"
+      >
+        <SignOutIcon />
+        Sign out
+      </button>
+    </div>
+  )
+}
+
+function GiftIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#1565c0" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="20 12 20 22 4 22 4 12" />
+      <rect x="2" y="7" width="20" height="5" />
+      <line x1="12" y1="22" x2="12" y2="7" />
+      <path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z" />
+      <path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z" />
     </svg>
   )
 }

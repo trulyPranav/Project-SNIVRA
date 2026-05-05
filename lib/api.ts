@@ -8,6 +8,10 @@ export interface SnivraUser {
   is_active: boolean
   created_at: string
   updated_at: string
+  referral_code: string
+  referral_points: number
+  referred_by: string | null
+  referral_credited: boolean
 }
 
 export interface GoogleAuthResponse {
@@ -24,11 +28,13 @@ export interface GoogleAuthResponse {
 export async function googleAuth(
   accessToken: string,
   phone?: string,
-  name?: string
+  name?: string,
+  referralCode?: string
 ): Promise<GoogleAuthResponse> {
   const body: Record<string, string> = { access_token: accessToken }
   if (phone) body.phone = phone
   if (name) body.name = name
+  if (referralCode) body.referral_code = referralCode
 
   const res = await fetch(`${API_URL}/auth/google`, {
     method: 'POST',

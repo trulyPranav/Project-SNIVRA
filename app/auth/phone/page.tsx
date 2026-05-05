@@ -22,6 +22,8 @@ export default function PhonePage() {
   const [ready, setReady] = useState(false)
   const [phone, setPhone] = useState('')
   const [phoneError, setPhoneError] = useState<string | null>(null)
+  const [referralCode, setReferralCode] = useState('')
+  const [referralExpanded, setReferralExpanded] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [pendingToken, setPendingToken] = useState<string | null>(null)
   const [suggestedName, setSuggestedName] = useState<string | undefined>()
@@ -55,7 +57,7 @@ export default function PhonePage() {
 
     setSubmitting(true)
     try {
-      const result = await googleAuth(pendingToken, normalized, suggestedName)
+      const result = await googleAuth(pendingToken, normalized, suggestedName, referralCode.trim() || undefined)
 
       if (result.access_token) {
         // Store SNIVRA token in cookie (30 days)
@@ -123,6 +125,42 @@ export default function PhonePage() {
           {phoneError && (
             <p className="mt-2 text-xs text-red-500">{phoneError}</p>
           )}
+
+          {/* Referral code (optional, dismissible) */}
+          <div className="mt-4">
+            {!referralExpanded ? (
+              <button
+                type="button"
+                onClick={() => setReferralExpanded(true)}
+                className="text-xs text-[#1565c0] hover:underline font-medium"
+              >
+                Got a referral code? (optional)
+              </button>
+            ) : (
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-xs font-medium text-[#1a1a2e]">
+                    Referral Code
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => { setReferralExpanded(false); setReferralCode('') }}
+                    className="text-xs text-[#5a6a85] hover:text-[#1a1a2e]"
+                  >
+                    Remove
+                  </button>
+                </div>
+                <input
+                  type="text"
+                  maxLength={8}
+                  placeholder="AB3XY7MN"
+                  value={referralCode}
+                  onChange={(e) => setReferralCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8))}
+                  className="w-full border border-[#e3eaf5] rounded-xl px-3 py-3 text-sm text-[#1a1a2e] outline-none focus:border-[#1565c0] focus:ring-2 focus:ring-[#e8f0fe] placeholder:text-[#b0bec5] tracking-widest uppercase transition-all"
+                />
+              </div>
+            )}
+          </div>
 
           <button
             type="submit"
