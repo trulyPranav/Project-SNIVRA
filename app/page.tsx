@@ -1,5 +1,6 @@
 import Image from 'next/image'
 import Link from 'next/link'
+import ThemeToggle from './components/ThemeToggle'
 
 export default function LandingPage() {
   return (
@@ -17,12 +18,15 @@ export default function LandingPage() {
           />
           <span className="text-[#1565c0] font-semibold text-base tracking-wide">SNIVRA</span>
         </div>
-        <Link
-          href="/login"
-          className="text-sm font-medium text-[#1565c0] border border-[#1565c0] rounded-lg px-4 py-1.5 hover:bg-[#1565c0] hover:text-white transition-colors"
-        >
-          Sign In
-        </Link>
+        <div className="flex items-center gap-2">
+          <ThemeToggle />
+          <Link
+            href="/login"
+            className="text-sm font-medium text-[#1565c0] border border-[#1565c0] rounded-lg px-4 py-1.5 hover:bg-[#1565c0] hover:text-white transition-colors"
+          >
+            Sign In
+          </Link>
+        </div>
       </header>
 
       {/* Hero */}

@@ -26,6 +26,7 @@
 
 * {
   -webkit-tap-highlight-color: transparent;
+  transition: background-color 0.25s ease, border-color 0.25s ease, color 0.15s ease;
 }
 
 body {
@@ -35,3 +36,84 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
+
+/* ─── Theme-switch circular reveal (View Transitions API) ────────────────────
+   Suppresses the default cross-fade and replaces it with a clip-path circle
+   that grows from the toggle button outward.
+   The `--theme-toggle-x/y` CSS variables are set from JS before the transition.
+   ─────────────────────────────────────────────────────────────────────────── */
+@media (prefers-reduced-motion: no-preference) {
+  ::view-transition-old(root) {
+    animation: none;
+    z-index: 0;
+  }
+  ::view-transition-new(root) {
+    z-index: 1;
+    animation: theme-reveal 2.0s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  @keyframes theme-reveal {
+    from {
+      clip-path: circle(0px at var(--theme-toggle-x, 50%) var(--theme-toggle-y, 50%));
+    }
+    to {
+      clip-path: circle(150vmax at var(--theme-toggle-x, 50%) var(--theme-toggle-y, 50%));
+    }
+  }
+}
+
+/* ─── Dark mode ───────────────────────────────────────────────────────────────
+   All overrides live here so we don't scatter dark: classes everywhere.
+   We override Tailwind's generated arbitrary-value classes by adding the
+   .dark ancestor for extra specificity.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+.dark { color-scheme: dark; }
+
+/* Backgrounds */
+.dark .bg-white                            { background-color: #1e293b; }
+.dark .bg-\[\#f4f6fb\]                    { background-color: #0f172a; }
+.dark .bg-\[\#e8f0fe\]                    { background-color: #1e3a5f; }
+.dark .bg-\[\#e3eaf5\]                    { background-color: #334155; }
+.dark .bg-\[\#f5f5f5\]                    { background-color: #374151; }
+.dark .bg-\[\#f0f0f0\]                    { background-color: #374151; }
+.dark .bg-\[\#eeeeee\]                    { background-color: #374151; }
+.dark .bg-\[\#fce4e4\]                    { background-color: #450a0a; }
+.dark .bg-\[\#f8faff\]                    { background-color: #1e3050; }
+.dark .bg-\[\#f0f4fa\]                    { background-color: #1e293b; }
+.dark .bg-\[\#fff8e1\]                    { background-color: #422006; }
+.dark .bg-\[\#e8f5e9\]                    { background-color: #14532d; }
+
+/* Focus-within backgrounds */
+.dark .focus-within\:bg-white:focus-within { background-color: #1e293b; }
+
+/* Hover backgrounds */
+.dark .hover\:bg-\[\#f8faff\]:hover       { background-color: #1e3050; }
+.dark .hover\:bg-\[\#f4f6fb\]:hover       { background-color: #1e293b; }
+.dark .hover\:bg-\[\#e8f0fe\]:hover       { background-color: #1e3a5f; }
+.dark .hover\:bg-\[\#c5d8fb\]:hover       { background-color: #1e40af; }
+.dark .hover\:bg-\[\#fff5f5\]:hover       { background-color: #450a0a; }
+.dark .hover\:bg-\[\#0d47a1\]:hover       { background-color: #1e40af; }
+
+/* Active backgrounds */
+.dark .active\:bg-\[\#f0f4ff\]:active     { background-color: #1e3050; }
+
+/* Borders */
+.dark .border-white                        { border-color: #1e293b; }
+.dark .border-\[\#e3eaf5\]               { border-color: #334155; }
+.dark .border-\[\#c5d8fb\]               { border-color: #1e40af; }
+.dark .border-\[\#f0f4fa\]               { border-color: #334155; }
+.dark .border-\[\#fce4e4\]               { border-color: #7f1d1d; }
+
+/* Hover borders */
+.dark .hover\:border-\[\#5a6a85\]:hover  { border-color: #94a3b8; }
+
+/* Text */
+.dark .text-\[\#1a1a2e\]                  { color: #f1f5f9; }
+.dark .text-\[\#5a6a85\]                  { color: #94a3b8; }
+.dark .text-\[\#b0bec5\]                  { color: #475569; }
+.dark .text-\[\#757575\]                  { color: #9ca3af; }
+.dark .text-\[\#f57f17\]                  { color: #fbbf24; }
+.dark .text-\[\#2e7d32\]                  { color: #4ade80; }
+
+/* Hover text */
+.dark .hover\:text-\[\#1a1a2e\]:hover     { color: #f1f5f9; }

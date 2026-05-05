@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, useRef, useCallback } from 'react'
+import { flushSync } from 'react-dom'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import Link from 'next/link'
@@ -145,6 +146,10 @@ export default function DashboardPage() {
   // Profile popover
   const [profileOpen, setProfileOpen] = useState(false)
   const profileRef = useRef<HTMLDivElement>(null)
+
+  // Dark mode
+  const [isDark, setIsDark] = useState(false)
+  const themeButtonRef = useRef<HTMLButtonElement>(null)
 
   // Change location modal
   const [modalOpen, setModalOpen] = useState(false)
@@ -347,6 +352,38 @@ export default function DashboardPage() {
     router.replace('/login')
   }
 
+  // ── Dark mode ───────────────────────────────────────────────────────────────────────────
+  useEffect(() => {
+    setIsDark(document.documentElement.classList.contains('dark'))
+  }, [])
+
+  function toggleTheme() {
+    const next = !isDark
+
+    // Set the origin CSS vars from the button's centre position
+    const btn = themeButtonRef.current
+    if (btn) {
+      const r = btn.getBoundingClientRect()
+      const x = Math.round(r.left + r.width / 2)
+      const y = Math.round(r.top + r.height / 2)
+      document.documentElement.style.setProperty('--theme-toggle-x', `${x}px`)
+      document.documentElement.style.setProperty('--theme-toggle-y', `${y}px`)
+    }
+
+    const applyTheme = () => {
+      flushSync(() => setIsDark(next))
+      document.documentElement.classList.toggle('dark', next)
+      localStorage.setItem('snivra_theme', next ? 'dark' : 'light')
+    }
+
+    // Use View Transitions API when available, plain fallback otherwise
+    if (typeof (document as any).startViewTransition === 'function') {
+      ;(document as any).startViewTransition(applyTheme)
+    } else {
+      applyTheme()
+    }
+  }
+
   // ── Notification prompt ───────────────────────────────────────────────────────
   function handleDismissNotifPrompt() {
     dismissNotificationPrompt()
@@ -453,6 +490,14 @@ export default function DashboardPage() {
             {myBookings && myBookings.some((b) => b.status === 'BOOKED') && (
               <span className="absolute top-0.5 right-0.5 w-2 h-2 rounded-full bg-[#1565c0] border-2 border-white" />
             )}
+          </button>
+          <button
+            ref={themeButtonRef}
+            onClick={toggleTheme}
+            title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+            className="p-1.5 text-[#5a6a85] hover:text-[#1565c0] transition-colors"
+          >
+            {isDark ? <SunIcon /> : <MoonIcon />}
           </button>
           {user && (
             <div ref={profileRef} className="relative">
@@ -1230,6 +1275,23 @@ function ProfilePopover({
   )
 }
 
+function SunIcon() {
+  return (
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="5" />
+      <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" />
+    </svg>
+  )
+}
+
+function MoonIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+    </svg>
+  )
+}
+
 function GiftIcon() {
   return (
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#1565c0" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -1286,13 +1348,13 @@ function BellIcon() {
 
 const STATUS_CONFIG: Record<
   MyBooking['status'],
-  { label: string; bg: string; text: string }
+  { label: string; cls: string }
 > = {
-  BOOKED: { label: 'Booked', bg: '#e8f0fe', text: '#1565c0' },
-  ARRIVED: { label: 'Arrived', bg: '#fff8e1', text: '#f57f17' },
-  COMPLETED: { label: 'Completed', bg: '#e8f5e9', text: '#2e7d32' },
-  CANCELLED: { label: 'Cancelled', bg: '#f5f5f5', text: '#757575' },
-  NO_SHOW: { label: 'No Show', bg: '#fce4e4', text: '#c62828' },
+  BOOKED:    { label: 'Booked',    cls: 'bg-[#e8f0fe] text-[#1565c0]' },
+  ARRIVED:   { label: 'Arrived',   cls: 'bg-[#fff8e1] text-[#f57f17]' },
+  COMPLETED: { label: 'Completed', cls: 'bg-[#e8f5e9] text-[#2e7d32]' },
+  CANCELLED: { label: 'Cancelled', cls: 'bg-[#f5f5f5] text-[#757575]' },
+  NO_SHOW:   { label: 'No Show',   cls: 'bg-[#fce4e4] text-[#c62828]' },
 }
 
 function formatBookingDate(dateStr: string): string {
@@ -1466,10 +1528,7 @@ function BookingCard({
       {/* Header row */}
       <div className="flex items-start justify-between gap-2">
         <p className="text-sm font-semibold text-[#1a1a2e] leading-snug">{booking.saloon_name}</p>
-        <span
-          className="shrink-0 text-[10px] font-bold px-2 py-0.5 rounded-full"
-          style={{ background: cfg.bg, color: cfg.text }}
-        >
+        <span className={`shrink-0 text-[10px] font-bold px-2 py-0.5 rounded-full ${cfg.cls}`}>
           {cfg.label}
         </span>
       </div>
