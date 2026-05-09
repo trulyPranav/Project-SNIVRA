@@ -1,5 +1,13 @@
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api/v1'
 
+const isNgrok = process.env.NEXT_PUBLIC_API_URL?.includes('ngrok')
+
+function apiFetch(input: string, init?: RequestInit): Promise<Response> {
+  const headers = new Headers(init?.headers)
+  if (isNgrok) headers.set('ngrok-skip-browser-warning', 'true')
+  return fetch(input, { ...init, headers })
+}
+
 export interface PendingReviewBooking {
   id: string
   barber_id: string
@@ -48,7 +56,7 @@ export async function googleAuth(
   if (name) body.name = name
   if (referralCode) body.referral_code = referralCode
 
-  const res = await fetch(`${API_URL}/auth/google`, {
+  const res = await apiFetch(`${API_URL}/auth/google`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
@@ -82,7 +90,7 @@ export function clearSnivraToken() {
 // ── User ───────────────────────────────────────────────────────────────────────
 
 export async function getMe(token: string): Promise<SnivraUser> {
-  const res = await fetch(`${API_URL}/users/me`, {
+  const res = await apiFetch(`${API_URL}/users/me`, {
     headers: { Authorization: `Bearer ${token}` },
   })
   const data = await res.json()
@@ -108,7 +116,7 @@ export async function getNearbySaloons(
   lng: number,
   radius = 5
 ): Promise<NearbySaloon[]> {
-  const res = await fetch(
+  const res = await apiFetch(
     `${API_URL}/saloons/nearby?lat=${lat}&lng=${lng}&radius=${radius}`
   )
   const data = await res.json()
@@ -130,7 +138,7 @@ export interface Barber {
 }
 
 export async function getSalonBarbers(saloonId: string, token: string): Promise<Barber[]> {
-  const res = await fetch(`${API_URL}/saloons/${saloonId}/barbers`, {
+  const res = await apiFetch(`${API_URL}/saloons/${saloonId}/barbers`, {
     headers: { Authorization: `Bearer ${token}` },
   })
   const data = await res.json()
@@ -151,7 +159,7 @@ export interface Service {
 }
 
 export async function getSalonServices(saloonId: string): Promise<Service[]> {
-  const res = await fetch(`${API_URL}/saloons/${saloonId}/services`)
+  const res = await apiFetch(`${API_URL}/saloons/${saloonId}/services`)
   const data = await res.json()
   if (!res.ok) throw new Error(data.error || 'Failed to fetch services')
   return data.services
@@ -169,7 +177,7 @@ export async function getConfiguredDates(
   month: string, // YYYY-MM
   token: string
 ): Promise<ConfiguredDatesResult> {
-  const res = await fetch(
+  const res = await apiFetch(
     `${API_URL}/time-slots/${saloonId}/configured-dates?month=${month}`,
     { headers: { Authorization: `Bearer ${token}` } }
   )
@@ -205,7 +213,7 @@ export async function getBarberSlots(
   barberId: string,
   token: string
 ): Promise<BarberSlotsResult> {
-  const res = await fetch(
+  const res = await apiFetch(
     `${API_URL}/time-slots/${saloonId}/barber-slots?slot_date=${slotDate}&barber_id=${barberId}`,
     { headers: { Authorization: `Bearer ${token}` } }
   )
@@ -230,7 +238,7 @@ export async function createBooking(
 ): Promise<BookingResult> {
   const body: Record<string, unknown> = { saloon_id: saloonId, time_slot_id: timeSlotId }
   if (serviceIds && serviceIds.length > 0) body.service_ids = serviceIds
-  const res = await fetch(`${API_URL}/bookings`, {
+  const res = await apiFetch(`${API_URL}/bookings`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -257,7 +265,7 @@ export interface MyBooking {
 }
 
 export async function getMyBookings(token: string): Promise<MyBooking[]> {
-  const res = await fetch(`${API_URL}/bookings/my-bookings`, {
+  const res = await apiFetch(`${API_URL}/bookings/my-bookings`, {
     headers: { Authorization: `Bearer ${token}` },
   })
   const data = await res.json()
@@ -270,7 +278,7 @@ export async function cancelBooking(
   bookingId: string,
   token: string
 ): Promise<{ id: string; status: string }> {
-  const res = await fetch(`${API_URL}/bookings/${bookingId}/cancel`, {
+  const res = await apiFetch(`${API_URL}/bookings/${bookingId}/cancel`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}` },
   })
@@ -297,7 +305,7 @@ export async function submitRating(
   rating: 0 | 1,
   token: string
 ): Promise<RatingResult> {
-  const res = await fetch(`${API_URL}/ratings`, {
+  const res = await apiFetch(`${API_URL}/ratings`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -317,7 +325,7 @@ export async function saveWebSubscription(
   subscription: PushSubscriptionJSON,
   token: string
 ): Promise<void> {
-  const res = await fetch(`${API_URL}/tokens/web-subscription`, {
+  const res = await apiFetch(`${API_URL}/tokens/web-subscription`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
