@@ -1,5 +1,14 @@
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api/v1'
 
+export interface PendingReviewBooking {
+  id: string
+  barber_id: string
+  barber_name: string
+  saloon_id: string
+  saloon_name: string
+  created_at: string
+}
+
 export interface SnivraUser {
   id: string
   phone: string
@@ -12,6 +21,9 @@ export interface SnivraUser {
   referral_points: number
   referred_by: string | null
   referral_credited: boolean
+  // CUSTOMER-only review prompt fields
+  isReview?: boolean
+  pending_review_booking?: PendingReviewBooking | null
 }
 
 export interface GoogleAuthResponse {
@@ -86,6 +98,9 @@ export interface NearbySaloon {
   name: string
   distance: number
   is_open: boolean
+  total_reviews: number
+  satisfied_count: number
+  satisfaction_rate: number | null
 }
 
 export async function getNearbySaloons(
@@ -109,6 +124,9 @@ export interface Barber {
   phone: string
   role: 'BARBER' | 'OWNER'
   is_available: boolean
+  total_reviews: number
+  satisfied_count: number
+  satisfaction_rate: number | null
 }
 
 export async function getSalonBarbers(saloonId: string, token: string): Promise<Barber[]> {
@@ -260,6 +278,37 @@ export async function cancelBooking(
   if (res.status === 401) throw new Error('UNAUTHORIZED')
   if (!res.ok) throw new Error(data.error || 'Failed to cancel booking')
   return data.booking
+}
+
+// ── Ratings ──────────────────────────────────────────────────────────────────
+
+export interface RatingResult {
+  id: string
+  booking_id: string
+  customer_id: string
+  barber_id: string
+  saloon_id: string
+  rating: 0 | 1
+  created_at: string
+}
+
+export async function submitRating(
+  bookingId: string,
+  rating: 0 | 1,
+  token: string
+): Promise<RatingResult> {
+  const res = await fetch(`${API_URL}/ratings`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ booking_id: bookingId, rating }),
+  })
+  const data = await res.json()
+  if (res.status === 401) throw new Error('UNAUTHORIZED')
+  if (!res.ok) throw new Error(data.error || 'Failed to submit rating')
+  return data.rating
 }
 
 // ── Push Tokens ───────────────────────────────────────────────────────────────

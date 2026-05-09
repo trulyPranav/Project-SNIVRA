@@ -12,8 +12,9 @@ import {
   getMe,
   getMyBookings,
   cancelBooking,
+  submitRating,
 } from '@/lib/api'
-import type { SnivraUser, NearbySaloon, MyBooking } from '@/lib/api'
+import type { SnivraUser, NearbySaloon, MyBooking, PendingReviewBooking } from '@/lib/api'
 import { registerPushNotifications, shouldShowNotificationPrompt, dismissNotificationPrompt } from '@/lib/webpush'
 
 // ─── Types ──────────────────────────────────────────────────────────────────────
@@ -134,6 +135,13 @@ export default function DashboardPage() {
   // Notification prompt
   const [notifPromptVisible, setNotifPromptVisible] = useState(false)
 
+  // Rating prompt (shown once per session)
+  const [ratingPromptOpen, setRatingPromptOpen] = useState(false)
+  const [pendingReviewBooking, setPendingReviewBooking] = useState<PendingReviewBooking | null>(null)
+  const [ratingSubmitting, setRatingSubmitting] = useState(false)
+  const [ratingError, setRatingError] = useState<string | null>(null)
+  const ratingPromptShownRef = useRef(false)
+
   // Bookings panel
   const [bookingsPanelOpen, setBookingsPanelOpen] = useState(false)
   const [myBookings, setMyBookings] = useState<MyBooking[] | null>(null)
@@ -171,9 +179,15 @@ export default function DashboardPage() {
     getMe(token)
       .then((u) => {
         setUser(u)
-        // Show in-app prompt if the user hasn't subscribed or dismissed before
+        // Show notification prompt if the user hasn't subscribed or dismissed before
         if (shouldShowNotificationPrompt()) {
           setNotifPromptVisible(true)
+        }
+        // Show rating prompt once per session if there's a pending review
+        if (!ratingPromptShownRef.current && u.isReview && u.pending_review_booking) {
+          ratingPromptShownRef.current = true
+          setPendingReviewBooking(u.pending_review_booking)
+          setRatingPromptOpen(true)
         }
       })
       .catch((err: Error) => {
@@ -395,6 +409,36 @@ export default function DashboardPage() {
     const token = getSnivraToken()
     if (!token) return
     await registerPushNotifications(token)
+  }
+
+  // ── Rating prompt ──────────────────────────────────────────────
+
+  async function handleSubmitRating(rating: 0 | 1) {
+    if (!pendingReviewBooking) return
+    const token = getSnivraToken()
+    if (!token) return
+    setRatingSubmitting(true)
+    setRatingError(null)
+    try {
+      await submitRating(pendingReviewBooking.id, rating, token)
+      setRatingPromptOpen(false)
+      setPendingReviewBooking(null)
+    } catch (e) {
+      if (e instanceof Error && e.message === 'UNAUTHORIZED') {
+        clearSnivraToken()
+        router.replace('/login')
+        return
+      }
+      setRatingError(e instanceof Error ? e.message : 'Failed to submit rating')
+    } finally {
+      setRatingSubmitting(false)
+    }
+  }
+
+  function handleDismissRating() {
+    // Dismiss without rating — do NOT call the API; isReview stays true server-side
+    // but we only show the prompt once per session (ratingPromptShownRef guards it)
+    setRatingPromptOpen(false)
   }
 
   // ── Bookings panel ────────────────────────────────────────────────────────────
@@ -684,6 +728,18 @@ export default function DashboardPage() {
           onClose={() => setModalOpen(false)}
         />
       )}
+
+      {/* ── Rating prompt ── */}
+      {ratingPromptOpen && pendingReviewBooking && (
+        <RatingPrompt
+          barberName={pendingReviewBooking.barber_name}
+          saloonName={pendingReviewBooking.saloon_name}
+          submitting={ratingSubmitting}
+          error={ratingError}
+          onRate={handleSubmitRating}
+          onDismiss={handleDismissRating}
+        />
+      )}
     </div>
   )
 }
@@ -949,10 +1005,18 @@ function SaloonCard({ saloon }: { saloon: NearbySaloon }) {
             </span>
           )}
         </div>
-        <div className="flex items-center gap-1 mt-0.5">
-          <PinIcon size={12} className="text-[#5a6a85] shrink-0" />
+        <div className="flex items-center gap-2 mt-0.5">
+          <div className="flex items-center gap-1">
+            <PinIcon size={12} className="text-[#5a6a85] shrink-0" />
+            <span className="text-xs text-[#5a6a85]">
+              {formatDistance(saloon.distance)} away
+            </span>
+          </div>
+          <span className="text-[#e3eaf5]">·</span>
           <span className="text-xs text-[#5a6a85]">
-            {formatDistance(saloon.distance)} away
+            {saloon.satisfaction_rate === null
+              ? 'No reviews yet'
+              : `${saloon.satisfaction_rate}% satisfied`}
           </span>
         </div>
       </div>
@@ -1340,6 +1404,110 @@ function BellIcon() {
     >
       <path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" />
       <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+    </svg>
+  )
+}
+
+// ─── Rating Prompt ────────────────────────────────────────────────────────────
+
+interface RatingPromptProps {
+  barberName: string
+  saloonName: string
+  submitting: boolean
+  error: string | null
+  onRate: (rating: 0 | 1) => void
+  onDismiss: () => void
+}
+
+function RatingPrompt({ barberName, saloonName, submitting, error, onRate, onDismiss }: RatingPromptProps) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center">
+      {/* Backdrop */}
+      <button
+        className="absolute inset-0 bg-black/40"
+        onClick={onDismiss}
+        aria-label="Dismiss"
+        disabled={submitting}
+      />
+      {/* Sheet */}
+      <div className="relative bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl w-full max-w-sm px-5 pt-5 pb-8 flex flex-col items-center text-center">
+        {/* Handle (mobile) */}
+        <div className="w-10 h-1 rounded-full bg-[#e3eaf5] mb-4 sm:hidden" />
+
+        <div className="w-14 h-14 rounded-full bg-[#e8f0fe] flex items-center justify-center mb-3">
+          <ScissorsIcon size={26} color="#1565c0" />
+        </div>
+
+        <h2 className="text-base font-bold text-[#1a1a2e] mb-1">
+          How was your experience?
+        </h2>
+        <div className="flex flex-col items-center gap-0.5 mb-5">
+          <p className="text-xs text-[#5a6a85]">
+            <span className="font-semibold text-[#1a1a2e]">{barberName}</span>
+            {' '}at{' '}
+            <span className="font-semibold text-[#1a1a2e]">{saloonName}</span>
+          </p>
+        </div>
+
+        {error && (
+          <p className="text-xs text-[#c62828] mb-4 bg-[#fce4e4] rounded-lg px-3 py-2 w-full">
+            {error}
+          </p>
+        )}
+
+        <div className="flex gap-3 w-full mb-4">
+          <button
+            onClick={() => onRate(0)}
+            disabled={submitting}
+            className="flex-1 flex flex-col items-center gap-1.5 rounded-xl border-2 border-[#e3eaf5] py-4 hover:border-[#c62828] hover:bg-[#fff5f5] transition-colors disabled:opacity-50"
+          >
+            <ThumbDownIcon />
+            <span className="text-xs font-semibold text-[#5a6a85]">Not satisfied</span>
+          </button>
+          <button
+            onClick={() => onRate(1)}
+            disabled={submitting}
+            className="flex-1 flex flex-col items-center gap-1.5 rounded-xl border-2 border-[#e3eaf5] py-4 hover:border-[#2e7d32] hover:bg-[#f1f8f1] transition-colors disabled:opacity-50"
+          >
+            <ThumbUpIcon />
+            <span className="text-xs font-semibold text-[#5a6a85]">Satisfied</span>
+          </button>
+        </div>
+
+        {submitting && (
+          <div className="flex items-center gap-2 text-xs text-[#5a6a85]">
+            <Spinner size={14} color="#5a6a85" />
+            Submitting…
+          </div>
+        )}
+
+        {!submitting && (
+          <button
+            onClick={onDismiss}
+            className="text-xs text-[#5a6a85] hover:text-[#1a1a2e] transition-colors mt-1"
+          >
+            Maybe later
+          </button>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function ThumbUpIcon() {
+  return (
+    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#2e7d32" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3H14z" />
+      <path d="M7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3" />
+    </svg>
+  )
+}
+
+function ThumbDownIcon() {
+  return (
+    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#c62828" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3H10z" />
+      <path d="M17 2h2.67A2.31 2.31 0 0 1 22 4v7a2.31 2.31 0 0 1-2.33 2H17" />
     </svg>
   )
 }

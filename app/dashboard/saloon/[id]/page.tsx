@@ -341,7 +341,7 @@ export default function SaloonBookingPage() {
               No available dates this month.
             </p>
           ) : (
-            <div className="flex gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>
+            <div className="flex gap-2 overflow-x-auto pb-1 sm:pb-2 [scrollbar-width:none] sm:[scrollbar-width:thin] sm:[scrollbar-color:#c5d8fb_transparent] [&::-webkit-scrollbar]:h-1 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-[#c5d8fb] [&::-webkit-scrollbar-thumb]:rounded-full" style={{ WebkitOverflowScrolling: 'touch' }}>
               {configuredDates
                 .filter((d) => !isBeforeToday(d))
                 .map((d) => {
@@ -407,9 +407,14 @@ export default function SaloonBookingPage() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className={`text-sm font-semibold truncate ${active ? 'text-white' : 'text-[#1a1a2e]'}`}>{b.name}</p>
-                      {!b.is_available && (
-                        <p className={`text-[10px] font-medium ${active ? 'text-orange-200' : 'text-[#e65100]'}`}>Unavailable</p>
-                      )}
+                      <p className={`text-[10px] font-medium ${active ? 'text-blue-200' : 'text-[#5a6a85]'}`}>
+                        {b.satisfaction_rate === null
+                          ? 'No reviews yet'
+                          : `${b.satisfaction_rate}% satisfied`}
+                        {!b.is_available && (
+                          <span className={`ml-2 ${active ? 'text-orange-200' : 'text-[#e65100]'}`}>· Unavailable</span>
+                        )}
+                      </p>
                     </div>
                   </button>
                 )
@@ -571,7 +576,7 @@ function Section({
   children?: React.ReactNode
 }) {
   return (
-    <div className={`bg-white rounded-xl border ${muted ? 'border-[#e3eaf5] opacity-60' : 'border-[#e3eaf5]'} overflow-hidden`}>
+    <div className={`bg-white rounded-xl border ${muted ? 'border-[#e3eaf5] opacity-60' : 'border-[#e3eaf5]'}`}>
       {/* Header row */}
       <div className="flex items-center gap-3 px-4 pt-4 pb-3">
         <div
