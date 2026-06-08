@@ -16,6 +16,7 @@ import {
 } from '@/lib/api'
 import type { SnivraUser, NearbySaloon, MyBooking, PendingReviewBooking } from '@/lib/api'
 import { registerPushNotifications, shouldShowNotificationPrompt, dismissNotificationPrompt } from '@/lib/webpush'
+import { createClient } from '@/lib/supabase'
 
 // ─── Types ──────────────────────────────────────────────────────────────────────
 
@@ -361,8 +362,22 @@ export default function DashboardPage() {
     return () => document.removeEventListener('mousedown', handleOutside)
   }, [profileOpen])
 
-  function handleSignOut() {
+  async function handleSignOut() {
+    try {
+      const supabase = createClient()
+      await supabase.auth.signOut()
+    } catch (e) {
+      console.error('Supabase signout failed', e)
+    }
+
     clearSnivraToken()
+
+    // optional cleanup
+    document.cookie =
+      'snivra_pending_token=; path=/; max-age=0; samesite=lax'
+    document.cookie =
+      'snivra_suggested_name=; path=/; max-age=0; samesite=lax'
+
     router.replace('/login')
   }
 
