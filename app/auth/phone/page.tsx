@@ -28,6 +28,8 @@ export default function PhonePage() {
   const [pendingToken, setPendingToken] = useState<string | null>(null)
   const [suggestedName, setSuggestedName] = useState<string | undefined>()
 
+  const [backendTest, setBackendTest] = useState('')
+
   const [debugInfo, setDebugInfo] = useState('')
 
   // useEffect(() => {
@@ -250,10 +252,70 @@ try {
           </button>
         </form>
 
+<button
+  type="button"
+  className="mt-2 w-full border rounded-xl p-3 text-sm"
+  onClick={async () => {
+    setBackendTest('Testing...')
+
+    try {
+      const url =
+        'https://snivra-be-production.up.railway.app/api/v1/health'
+
+      const start = Date.now()
+
+      const res = await fetch(url, {
+        method: 'GET',
+        cache: 'no-store',
+      })
+
+      const text = await res.text()
+
+      setBackendTest(
+        JSON.stringify(
+          {
+            success: true,
+            status: res.status,
+            statusText: res.statusText,
+            durationMs: Date.now() - start,
+            response: text,
+          },
+          null,
+          2
+        )
+      )
+    } catch (err: any) {
+      setBackendTest(
+        JSON.stringify(
+          {
+            success: false,
+            name: err?.name,
+            message: err?.message,
+            stack: err?.stack,
+          },
+          null,
+          2
+        )
+      )
+    }
+  }}
+>
+  Test Backend Connection
+</button>
+
         <p className="text-xs text-[#5a6a85] text-center mt-4">
           Your number is used only for booking notifications.
         </p>
       </div>
+
+{backendTest && (
+  <pre
+    className="mt-4 p-2 bg-gray-100 text-[10px] overflow-auto"
+    style={{ maxHeight: 250 }}
+  >
+    {backendTest}
+  </pre>
+)}
 <pre
   className="mt-4 p-2 bg-gray-100 text-[10px] overflow-auto"
   style={{ maxHeight: 300 }}
