@@ -28,48 +28,16 @@ export default function PhonePage() {
   const [pendingToken, setPendingToken] = useState<string | null>(null)
   const [suggestedName, setSuggestedName] = useState<string | undefined>()
 
-  const [backendTest, setBackendTest] = useState('')
-
-  const [debugInfo, setDebugInfo] = useState('')
-
-  // useEffect(() => {
-  //   const token = getCookie('snivra_pending_token')
-  //   if (!token) {
-  //     router.replace('/login')
-  //     return
-  //   }
-  //   const name = getCookie('snivra_suggested_name')
-  //   setPendingToken(token)
-  //   if (name) setSuggestedName(name)
-  //   setReady(true)
-  // }, [router])
-
   useEffect(() => {
-    try {
-      const token = getCookie('snivra_pending_token')
-      const name = getCookie('snivra_suggested_name')
-
-      setDebugInfo(
-        JSON.stringify({
-          cookies: document.cookie,
-          tokenExists: !!token,
-          tokenLength: token?.length,
-          suggestedName: name,
-          userAgent: navigator.userAgent,
-        }, null, 2)
-      )
-
-      if (!token) {
-        router.replace('/login')
-        return
-      }
-
-      setPendingToken(token)
-      if (name) setSuggestedName(name)
-      setReady(true)
-    } catch (e) {
-      setDebugInfo(`INIT ERROR: ${String(e)}`)
+    const token = getCookie('snivra_pending_token')
+    if (!token) {
+      router.replace('/login')
+      return
     }
+    const name = getCookie('snivra_suggested_name')
+    setPendingToken(token)
+    if (name) setSuggestedName(name)
+    setReady(true)
   }, [router])
 
   async function handleSubmit(e: React.FormEvent) {
@@ -88,71 +56,23 @@ export default function PhonePage() {
     }
 
     setSubmitting(true)
-    // try {
-    //   const result = await googleAuth(pendingToken, normalized, suggestedName, referralCode.trim() || undefined)
+    try {
+      const result = await googleAuth(pendingToken, normalized, suggestedName, referralCode.trim() || undefined)
 
-    //   if (result.access_token) {
-    //     // Store SNIVRA token in cookie (30 days)
-    //     document.cookie = `snivra_token=${result.access_token}; path=/; max-age=${60 * 60 * 24 * 30}; samesite=lax`
-    //     deleteCookie('snivra_pending_token')
-    //     deleteCookie('snivra_suggested_name')
-    //     router.replace('/dashboard')
-    //   } else {
-    //     setPhoneError('Could not complete signup. Please try again.')
-    //   }
-    // } catch (err) {
-    //   setPhoneError(err instanceof Error ? err.message : 'Something went wrong.')
-    // } finally {
-    //   setSubmitting(false)
-    // }
-
-try {
-  setDebugInfo(prev =>
-    prev +
-    '\n\nSubmitting...' +
-    `\nToken exists: ${!!pendingToken}` +
-    `\nToken length: ${pendingToken?.length}`
-  )
-
-  const result = await googleAuth(
-    pendingToken,
-    normalized,
-    suggestedName,
-    referralCode.trim() || undefined
-  )
-
-  setDebugInfo(prev =>
-    prev +
-    '\n\nSUCCESS:\n' +
-    JSON.stringify(result, null, 2)
-  )
-
-  if (result.access_token) {
-    document.cookie = `snivra_token=${result.access_token}; path=/; max-age=${60 * 60 * 24 * 30}; samesite=lax`
-    deleteCookie('snivra_pending_token')
-    deleteCookie('snivra_suggested_name')
-    router.replace('/dashboard')
-  }
-} catch (err: any) {
-  setDebugInfo(prev =>
-    prev +
-    '\n\nFETCH ERROR:\n' +
-    JSON.stringify({
-      message: err?.message,
-      name: err?.name,
-      stack: err?.stack,
-      cookies: document.cookie,
-      tokenLength: pendingToken?.length,
-      apiUrl: process.env.NEXT_PUBLIC_API_URL,
-    }, null, 2)
-  )
-
-  setPhoneError(
-    err instanceof Error ? err.message : 'Something went wrong.'
-  )
-} finally {
-  setSubmitting(false)
-}
+      if (result.access_token) {
+        // Store SNIVRA token in cookie (30 days)
+        document.cookie = `snivra_token=${result.access_token}; path=/; max-age=${60 * 60 * 24 * 30}; samesite=lax`
+        deleteCookie('snivra_pending_token')
+        deleteCookie('snivra_suggested_name')
+        router.replace('/dashboard')
+      } else {
+        setPhoneError('Could not complete signup. Please try again.')
+      }
+    } catch (err) {
+      setPhoneError(err instanceof Error ? err.message : 'Something went wrong.')
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   if (!ready) {
@@ -252,76 +172,10 @@ try {
           </button>
         </form>
 
-<button
-  type="button"
-  className="mt-2 w-full border rounded-xl p-3 text-sm"
-  onClick={async () => {
-    setBackendTest('Testing...')
-
-    try {
-      const url =
-        'https://snivra-be-production.up.railway.app/api/v1/health'
-
-      const start = Date.now()
-
-      const res = await fetch(url, {
-        method: 'GET',
-        cache: 'no-store',
-      })
-
-      const text = await res.text()
-
-      setBackendTest(
-        JSON.stringify(
-          {
-            success: true,
-            status: res.status,
-            statusText: res.statusText,
-            durationMs: Date.now() - start,
-            response: text,
-          },
-          null,
-          2
-        )
-      )
-    } catch (err: any) {
-      setBackendTest(
-        JSON.stringify(
-          {
-            success: false,
-            name: err?.name,
-            message: err?.message,
-            stack: err?.stack,
-          },
-          null,
-          2
-        )
-      )
-    }
-  }}
->
-  Test Backend Connection
-</button>
-
         <p className="text-xs text-[#5a6a85] text-center mt-4">
           Your number is used only for booking notifications.
         </p>
       </div>
-
-{backendTest && (
-  <pre
-    className="mt-4 p-2 bg-gray-100 text-[10px] overflow-auto"
-    style={{ maxHeight: 250 }}
-  >
-    {backendTest}
-  </pre>
-)}
-<pre
-  className="mt-4 p-2 bg-gray-100 text-[10px] overflow-auto"
-  style={{ maxHeight: 300 }}
->
-  {debugInfo}
-</pre>
     </div>
   )
 }
