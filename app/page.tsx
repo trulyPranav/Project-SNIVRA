@@ -65,7 +65,7 @@ export default function LandingPage() {
         <FeatureCard
           icon={<CalendarIcon />}
           title="Instant Booking"
-          desc="Pick your seat and time slot, confirm in one tap — no back and forth."
+          desc="Pick your services and session, confirm in one tap — no back and forth."
         />
         <FeatureCard
           icon={<CheckIcon />}

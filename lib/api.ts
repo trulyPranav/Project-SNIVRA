@@ -1,7 +1,7 @@
-const API_URL =
-  typeof window !== 'undefined'
-    ? '/backend'
-    : process.env.NEXT_PUBLIC_API_URL! || 'http://localhost:4000/api/v1'
+const API_URL = process.env.NEXT_PUBLIC_API_URL! || 'http://localhost:4000/api/v1'
+  // typeof window !== 'undefined'
+  //   ? '/backend'
+  //   : process.env.NEXT_PUBLIC_API_URL! || 'http://localhost:4000/api/v1'
 
 const isNgrok = process.env.NEXT_PUBLIC_API_URL?.includes('ngrok')
 
@@ -168,103 +168,165 @@ export async function getSalonServices(saloonId: string): Promise<Service[]> {
   return data.services
 }
 
-// ── Time Slots ────────────────────────────────────────────────────────────────
+// ── Sessions ──────────────────────────────────────────────────────────────────
 
-export interface ConfiguredDatesResult {
-  configured_dates: string[]
-  slot_count_by_date: Record<string, number>
+export interface BarberCapacity {
+  barber_id: string
+  total_capacity_minutes: number
+  consumed_minutes: number
+  remaining_minutes: number
+  queue_depth: number
 }
 
-export async function getConfiguredDates(
+export interface Session {
+  id: string
+  saloon_id: string
+  session_date: string
+  label: 'MORNING' | 'AFTERNOON' | 'EVENING'
+  start_time: string
+  end_time: string
+  is_active: boolean
+  total_capacity_minutes: number
+  barber_capacity: BarberCapacity[]
+}
+
+export interface SessionsResult {
+  saloon_id: string
+  session_date: string
+  sessions: Session[]
+}
+
+export async function getSessions(
   saloonId: string,
-  month: string, // YYYY-MM
+  date: string,
   token: string
-): Promise<ConfiguredDatesResult> {
+): Promise<SessionsResult> {
   const res = await apiFetch(
-    `${API_URL}/time-slots/${saloonId}/configured-dates?month=${month}`,
+    `${API_URL}/sessions/${saloonId}?date=${date}`,
     { headers: { Authorization: `Bearer ${token}` } }
   )
   const data = await res.json()
   if (res.status === 401) throw new Error('UNAUTHORIZED')
-  if (!res.ok) throw new Error(data.error || 'Failed to fetch configured dates')
+  if (!res.ok) throw new Error(data.error || 'Failed to fetch sessions')
   return data
 }
 
-export interface TimeSlot {
-  id: string
-  start_time: string
-  end_time: string
-  is_available: boolean
-  barber_available: boolean
-  status: string
+export interface SessionBarberAvailability {
+  barber_id: string
+  barber_name: string
+  total_capacity_minutes: number
+  consumed_minutes: number
+  remaining_minutes: number
+  queue_depth: number
+  next_queue_position: number
 }
 
-export interface BarberSlotsResult {
-  barber_is_available: boolean
-  slots: TimeSlot[]
-  summary: {
-    total_slots: number
-    available_slots: number
-    unavailable_slots: number
-    barber_unavailable_slots: number
-  }
+export interface SessionAvailabilityResult {
+  session: Omit<Session, 'barber_capacity' | 'total_capacity_minutes'>
+  total_capacity_minutes: number
+  barbers: SessionBarberAvailability[]
 }
 
-export async function getBarberSlots(
-  saloonId: string,
-  slotDate: string,
-  barberId: string,
+export async function getSessionAvailability(
+  sessionId: string,
   token: string
-): Promise<BarberSlotsResult> {
-  const res = await apiFetch(
-    `${API_URL}/time-slots/${saloonId}/barber-slots?slot_date=${slotDate}&barber_id=${barberId}`,
-    { headers: { Authorization: `Bearer ${token}` } }
-  )
+): Promise<SessionAvailabilityResult> {
+  const res = await apiFetch(`${API_URL}/sessions/${sessionId}/availability`, {
+    headers: { Authorization: `Bearer ${token}` },
+  })
   const data = await res.json()
   if (res.status === 401) throw new Error('UNAUTHORIZED')
-  if (!res.ok) throw new Error(data.error || 'Failed to fetch time slots')
+  if (!res.ok) throw new Error(data.error || 'Failed to fetch session availability')
   return data
 }
 
 // ── Bookings ──────────────────────────────────────────────────────────────────
 
+export interface BookingService {
+  id: string
+  name: string
+  duration_minutes: number
+}
+
+export interface PartialFitResponse {
+  accepted: false
+  reason: 'PARTIAL_FIT'
+  message: string
+  feasibleServices: BookingService[]
+  rejectedServices: BookingService[]
+}
+
+export class PartialFitError extends Error {
+  feasibleServices: BookingService[]
+  rejectedServices: BookingService[]
+
+  constructor(data: PartialFitResponse) {
+    super(data.message)
+    this.name = 'PartialFitError'
+    this.feasibleServices = data.feasibleServices
+    this.rejectedServices = data.rejectedServices
+  }
+}
+
 export interface BookingResult {
-  booking: { id: string; status: string }
+  message: string
+  booking: {
+    id: string
+    status: string
+    session_id: string
+    queue_position: number
+    estimated_arrival_at: string
+    allocated_duration_minutes: number
+  }
   otp: string
+  queue_position: number
+  estimated_arrival_at: string
 }
 
 export async function createBooking(
   saloonId: string,
-  timeSlotId: string,
-  token: string,
-  serviceIds?: string[]
+  sessionId: string,
+  barberId: string,
+  serviceIds: string[],
+  token: string
 ): Promise<BookingResult> {
-  const body: Record<string, unknown> = { saloon_id: saloonId, time_slot_id: timeSlotId }
-  if (serviceIds && serviceIds.length > 0) body.service_ids = serviceIds
   const res = await apiFetch(`${API_URL}/bookings`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${token}`,
     },
-    body: JSON.stringify(body),
+    body: JSON.stringify({
+      saloon_id: saloonId,
+      session_id: sessionId,
+      barber_id: barberId,
+      service_ids: serviceIds,
+    }),
   })
   const data = await res.json()
   if (res.status === 401) throw new Error('UNAUTHORIZED')
-  if (!res.ok) throw new Error(data.error || 'Failed to create booking')
+  if (res.status === 422 && data.reason === 'PARTIAL_FIT') {
+    throw new PartialFitError(data as PartialFitResponse)
+  }
+  if (!res.ok) throw new Error(data.error || data.message || 'Failed to create booking')
   return data
 }
 
 export interface MyBooking {
   id: string
   status: 'BOOKED' | 'ARRIVED' | 'COMPLETED' | 'CANCELLED' | 'NO_SHOW'
-  slot_date: string
-  start_time: string
-  end_time: string
+  session_id: string
+  queue_position: number
+  estimated_arrival_at: string
+  allocated_duration_minutes: number
+  session_date: string
+  session_label: string
+  session_start: string
+  session_end: string
   barber_name: string
   saloon_name: string
-  otp: string
-  services: { id: string; name: string }[]
+  otp: string | null
+  services: BookingService[]
 }
 
 export async function getMyBookings(token: string): Promise<MyBooking[]> {

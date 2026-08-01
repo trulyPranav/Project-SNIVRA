@@ -1545,14 +1545,21 @@ function formatBookingDate(dateStr: string): string {
   return d.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })
 }
 
-function formatBookingTime(start: string, end: string): string {
-  const fmt = (t: string) => {
-    const [h, m] = t.split(':').map(Number)
-    const ampm = h >= 12 ? 'PM' : 'AM'
-    const hour = h % 12 || 12
-    return `${hour}:${String(m).padStart(2, '0')} ${ampm}`
+function formatArrivalTime(iso: string): string {
+  return new Date(iso).toLocaleTimeString('en-IN', {
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+  })
+}
+
+function formatSessionLabel(label: string): string {
+  const labels: Record<string, string> = {
+    MORNING: 'Morning',
+    AFTERNOON: 'Afternoon',
+    EVENING: 'Evening',
   }
-  return `${fmt(start)} – ${fmt(end)}`
+  return labels[label] ?? label
 }
 
 interface BookingsPanelProps {
@@ -1716,10 +1723,12 @@ function BookingCard({
         </span>
       </div>
 
-      {/* Date + time + seat */}
+      {/* Date + arrival + barber */}
       <div className="flex flex-col gap-1">
-        <p className="text-xs text-[#5a6a85]">{formatBookingDate(booking.slot_date)}</p>
-        <p className="text-xs text-[#5a6a85]">{formatBookingTime(booking.start_time, booking.end_time)} · {booking.barber_name}</p>
+        <p className="text-xs text-[#5a6a85]">{formatBookingDate(booking.session_date)}</p>
+        <p className="text-xs text-[#5a6a85]">
+          Your turn at {formatArrivalTime(booking.estimated_arrival_at)} · {formatSessionLabel(booking.session_label)} · {booking.barber_name}
+        </p>
         {booking.services.length > 0 && (
           <div className="flex flex-wrap gap-1 mt-0.5">
             {booking.services.map((s) => (
@@ -1731,11 +1740,16 @@ function BookingCard({
         )}
       </div>
 
-      {/* OTP (only for BOOKED) */}
-      {booking.status === 'BOOKED' && (
-        <div className="flex items-center gap-2 bg-[#e8f0fe] rounded-lg px-3 py-2">
-          <span className="text-xs font-semibold text-[#1565c0]">OTP</span>
-          <span className="text-base font-bold text-[#1565c0] tracking-widest">{booking.otp}</span>
+      {/* OTP (only for BOOKED with valid OTP) */}
+      {booking.status === 'BOOKED' && booking.otp && (
+        <div className="flex flex-col gap-1">
+          <div className="flex items-center gap-2 bg-[#e8f0fe] rounded-lg px-3 py-2">
+            <span className="text-xs font-semibold text-[#1565c0]">OTP</span>
+            <span className="text-base font-bold text-[#1565c0] tracking-widest">{booking.otp}</span>
+          </div>
+          <p className="text-[10px] text-[#5a6a85]">
+            Valid until {formatArrivalTime(new Date(new Date(booking.estimated_arrival_at).getTime() + 30 * 60 * 1000).toISOString())}
+          </p>
         </div>
       )}
 
@@ -1752,7 +1766,7 @@ function BookingCard({
       {canCancel && isConfirming && (
         <div className="border border-[#fce4e4] rounded-lg p-3 flex flex-col gap-2">
           <p className="text-xs font-semibold text-[#1a1a2e]">Cancel this booking?</p>
-          <p className="text-xs text-[#5a6a85]">This will release your slot. This action cannot be undone.</p>
+          <p className="text-xs text-[#5a6a85]">This will cancel your booking. This action cannot be undone.</p>
           {cancelError && (
             <p className="text-xs text-[#c62828]">{cancelError}</p>
           )}
